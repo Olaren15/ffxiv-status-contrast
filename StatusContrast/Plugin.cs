@@ -14,16 +14,16 @@ public sealed unsafe class Plugin : IDalamudPlugin
     private AddonNamePlate* _namePlate;
 
     private AtkUnitBase* _buffs;
-    private BackgroundNode* _buffsBackground = null;
+    private BackgroundNodeGroup? _buffsBackgrounds;
 
     private AtkUnitBase* _debuffs;
-    private BackgroundNode* _debuffsBackground = null;
+    private BackgroundNodeGroup? _debuffsBackgrounds;
 
     private AtkUnitBase* _jobStatuses;
-    private BackgroundNode* _jobStatusBackground = null;
+    private BackgroundNodeGroup? _jobStatusBackground;
 
     private AtkUnitBase* _otherStatuses;
-    private BackgroundNode* _otherStatusesBackground = null;
+    private BackgroundNodeGroup? _otherStatusesBackgrounds;
 
     public Plugin()
     {
@@ -92,34 +92,34 @@ public sealed unsafe class Plugin : IDalamudPlugin
 
         CreateBackgroundsIfNeeded();
 
-        _buffsBackground->Update(_buffs->RootNode);
-        _debuffsBackground->Update(_debuffs->RootNode);
-        _otherStatusesBackground->Update(_otherStatuses->RootNode);
-        _jobStatusBackground->Update(_jobStatuses->RootNode);
+        _buffsBackgrounds?.Update();
+        _debuffsBackgrounds?.Update();
+        _otherStatusesBackgrounds?.Update();
+        _jobStatusBackground?.Update();
     }
 
     private void CreateBackgroundsIfNeeded()
     {
         bool addedNode = false;
 
-        if (_buffs is not null && _buffsBackground is null)
+        if (_buffs is not null && _buffsBackgrounds is null)
         {
             Log.Debug("creating buffs background");
-            _buffsBackground = CreateBackground(_buffs->RootNode, _namePlate->RootNode);
+            _buffsBackgrounds = CreateBackground(_buffs->RootNode, _namePlate->RootNode);
             addedNode = true;
         }
 
-        if (_debuffs is not null && _debuffsBackground is null)
+        if (_debuffs is not null && _debuffsBackgrounds is null)
         {
             Log.Debug("creating debuff background");
-            _debuffsBackground = CreateBackground(_debuffs->RootNode, _namePlate->RootNode);
+            _debuffsBackgrounds = CreateBackground(_debuffs->RootNode, _namePlate->RootNode);
             addedNode = true;
         }
 
-        if (_otherStatuses is not null && _otherStatusesBackground is null)
+        if (_otherStatuses is not null && _otherStatusesBackgrounds is null)
         {
             Log.Debug("creating other statuses background");
-            _otherStatusesBackground = CreateBackground(_otherStatuses->RootNode, _namePlate->RootNode);
+            _otherStatusesBackgrounds = CreateBackground(_otherStatuses->RootNode, _namePlate->RootNode);
             addedNode = true;
         }
 
@@ -140,32 +140,32 @@ public sealed unsafe class Plugin : IDalamudPlugin
     {
         bool removedNode = false;
 
-        if (_buffsBackground is not null)
+        if (_buffsBackgrounds is not null)
         {
             Log.Debug("destroying buffs background");
             Framework.RunOnFrameworkThread(() =>
             {
-                DestroyBackground(_buffsBackground);
-                _buffsBackground = null;
+                DestroyBackground(_buffsBackgrounds);
+                _buffsBackgrounds = null;
             });
 
             removedNode = true;
         }
 
-        if (_debuffsBackground is not null)
+        if (_debuffsBackgrounds is not null)
         {
             Log.Debug("destroying debuffs background");
-            DestroyBackground(_debuffsBackground);
-            _debuffsBackground = null;
+            DestroyBackground(_debuffsBackgrounds);
+            _debuffsBackgrounds = null;
 
             removedNode = true;
         }
 
-        if (_otherStatusesBackground is not null)
+        if (_otherStatusesBackgrounds is not null)
         {
             Log.Debug("destroying other statuses background");
-            DestroyBackground(_otherStatusesBackground);
-            _otherStatusesBackground = null;
+            DestroyBackground(_otherStatusesBackgrounds);
+            _otherStatusesBackgrounds = null;
 
             removedNode = true;
         }
@@ -185,26 +185,22 @@ public sealed unsafe class Plugin : IDalamudPlugin
         }
     }
 
-    private static BackgroundNode* CreateBackground(AtkResNode* statusNode, AtkResNode* attachTarget)
+    private static BackgroundNodeGroup CreateBackground(AtkResNode* statusNode, AtkResNode* attachTarget)
     {
-        BackgroundNode* backgroundNode = (BackgroundNode*)IMemorySpace.GetUISpace()->Malloc<BackgroundNode>();
-        if (backgroundNode is null)
-        {
-            return null;
-        }
+        BackgroundNodeGroup group = new(statusNode);
+        NodeLinker.AttachToNode(group.RootNode, attachTarget);
 
-        IMemorySpace.Memset(backgroundNode, 0, (ulong)sizeof(BackgroundNode));
-        backgroundNode->Init(statusNode);
-
-        NodeLinker.AttachToNode((AtkResNode*)backgroundNode->ImageNode, attachTarget);
-
-        return backgroundNode;
+        return group;
     }
 
-    private static void DestroyBackground(BackgroundNode* backgroundNode)
+    private static void DestroyBackground(BackgroundNodeGroup? group)
     {
-        NodeLinker.DetachNode((AtkResNode*)backgroundNode->ImageNode);
-        backgroundNode->Destroy();
-        IMemorySpace.Free(backgroundNode);
+        if (group is null)
+        {
+            return;
+        }
+
+        NodeLinker.DetachNode(group.Value.RootNode);
+        group.Value.Dispose();
     }
 }

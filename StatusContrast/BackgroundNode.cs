@@ -10,11 +10,14 @@ public unsafe struct BackgroundNode
     private AtkUldPart _part;
     private AtkUldPartsList _parts;
     private AtkImageNode _imageNode;
+    private AtkResNode* _nodeToFollow;
 
     public AtkImageNode* ImageNode => (AtkImageNode*)Unsafe.AsPointer(ref _imageNode);
 
-    public void Init(AtkResNode* nodetoCopy)
+    public void Init(AtkResNode* nodetoFollow)
     {
+        _nodeToFollow = nodetoFollow;
+
         _asset.AtkTexture.Ctor();
 
         _part.UldAsset = (AtkUldAsset*)Unsafe.AsPointer(ref _asset);
@@ -27,25 +30,26 @@ public unsafe struct BackgroundNode
         _imageNode.Type = NodeType.Image;
         _imageNode.Flags = (byte)ImageNodeFlags.AutoFit;
         _imageNode.WrapMode = 0x1;
-        _imageNode.NodeFlags = NodeFlags.Visible;
         _imageNode.Color = new ByteColor { R = 0, G = 0, B = 0, A = 128 };
         _imageNode.PartsList = (AtkUldPartsList*)Unsafe.AsPointer(ref _parts);
 
-        Update(nodetoCopy);
-    }
-
-    public void Update(AtkResNode* nodetoCopy)
-    {
-        _imageNode.SetXFloat(nodetoCopy->X);
-        _imageNode.SetYFloat(nodetoCopy->Y);
-        _imageNode.SetWidth(nodetoCopy->Width);
-        _imageNode.SetHeight(nodetoCopy->Height);
-        _imageNode.SetScale(nodetoCopy->ScaleX, nodetoCopy->ScaleY);
+        Update();
     }
 
     public void Destroy()
     {
         _asset.AtkTexture.Destroy(false);
         _imageNode.Destroy(false);
+    }
+
+    public void Update()
+    {
+        _imageNode.NodeFlags = _nodeToFollow->NodeFlags;
+        _imageNode.SetXFloat(_nodeToFollow->X);
+        _imageNode.SetYFloat(_nodeToFollow->Y);
+        // Fill gaps with one more pixel
+        _imageNode.SetWidth((ushort)(_nodeToFollow->Width + 1));
+        _imageNode.SetHeight(_nodeToFollow->Height);
+        _imageNode.SetScale(_nodeToFollow->ScaleX, _nodeToFollow->ScaleY);
     }
 }
