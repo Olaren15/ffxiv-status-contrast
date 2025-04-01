@@ -2,7 +2,6 @@
 using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
-using FFXIVClientStructs.FFXIV.Client.Graphics;
 using FFXIVClientStructs.FFXIV.Client.System.Memory;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
@@ -12,19 +11,19 @@ namespace StatusContrast;
 // ReSharper disable once UnusedType.Global
 public sealed unsafe class Plugin : IDalamudPlugin
 {
-    private AtkUnitBase* _buffs;
-    private AtkImageNode* _buffsBackground = null;
-
-    private AtkUnitBase* _debuffs;
-    private AtkImageNode* _debuffsBackground = null;
-
-    private AtkImageNode* _jobStatusBackground = null;
-    private AtkUnitBase* _jobStatuses;
-
     private AddonNamePlate* _namePlate;
 
+    private AtkUnitBase* _buffs;
+    private BackgroundNode* _buffsBackground = null;
+
+    private AtkUnitBase* _debuffs;
+    private BackgroundNode* _debuffsBackground = null;
+
+    private AtkUnitBase* _jobStatuses;
+    private BackgroundNode* _jobStatusBackground = null;
+
     private AtkUnitBase* _otherStatuses;
-    private AtkImageNode* _otherStatusesBackground = null;
+    private BackgroundNode* _otherStatusesBackground = null;
 
     public Plugin()
     {
@@ -40,7 +39,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
             (_, args) => _namePlate = (AddonNamePlate*)args.Addon);
         AddonLifecycle.RegisterListener(AddonEvent.PreFinalize, "NamePlate", (_, _) =>
         {
-            DestroyBackgrounds();
+            Framework.RunOnFrameworkThread(DestroyBackgrounds).Wait();
             _namePlate = null;
         });
 
@@ -80,7 +79,7 @@ public sealed unsafe class Plugin : IDalamudPlugin
 
     public void Dispose()
     {
-        DestroyBackgrounds();
+        Framework.RunOnFrameworkThread(DestroyBackgrounds).Wait();
         Framework.Update -= Update;
     }
 
@@ -88,163 +87,124 @@ public sealed unsafe class Plugin : IDalamudPlugin
     {
         if (_namePlate is null)
         {
-            Log.Info("nameplate not ready");
             return;
         }
 
+        CreateBackgroundsIfNeeded();
+
+        _buffsBackground->Update(_buffs->RootNode);
+        _debuffsBackground->Update(_debuffs->RootNode);
+        _otherStatusesBackground->Update(_otherStatuses->RootNode);
+        _jobStatusBackground->Update(_jobStatuses->RootNode);
+    }
+
+    private void CreateBackgroundsIfNeeded()
+    {
+        bool addedNode = false;
+
         if (_buffs is not null && _buffsBackground is null)
         {
-            Log.Info("creating buffs background");
-            _buffsBackground = CreateBackground(_buffs);
-            NodeLinker.AttachToNode((AtkResNode*)_buffsBackground, _namePlate->RootNode);
-            _namePlate->UldManager.UpdateDrawNodeList();
+            Log.Debug("creating buffs background");
+            _buffsBackground = CreateBackground(_buffs->RootNode, _namePlate->RootNode);
+            addedNode = true;
         }
 
         if (_debuffs is not null && _debuffsBackground is null)
         {
-            Log.Info("creating debuff background");
-            _debuffsBackground = CreateBackground(_debuffs);
-            NodeLinker.AttachToNode((AtkResNode*)_debuffsBackground, _namePlate->RootNode);
-            _namePlate->UldManager.UpdateDrawNodeList();
+            Log.Debug("creating debuff background");
+            _debuffsBackground = CreateBackground(_debuffs->RootNode, _namePlate->RootNode);
+            addedNode = true;
         }
 
         if (_otherStatuses is not null && _otherStatusesBackground is null)
         {
-            Log.Info("creating other statuses background");
-            _otherStatusesBackground = CreateBackground(_otherStatuses);
-            NodeLinker.AttachToNode((AtkResNode*)_otherStatusesBackground, _namePlate->RootNode);
-            _namePlate->UldManager.UpdateDrawNodeList();
+            Log.Debug("creating other statuses background");
+            _otherStatusesBackground = CreateBackground(_otherStatuses->RootNode, _namePlate->RootNode);
+            addedNode = true;
         }
 
         if (_jobStatuses is not null && _jobStatusBackground is null)
         {
-            Log.Info("creating job statuses background");
-            _jobStatusBackground = CreateBackground(_jobStatuses);
-            NodeLinker.AttachToNode((AtkResNode*)_jobStatusBackground, _namePlate->RootNode);
+            Log.Debug("creating job statuses background");
+            _jobStatusBackground = CreateBackground(_jobStatuses->RootNode, _namePlate->RootNode);
+            addedNode = true;
+        }
+
+        if (addedNode)
+        {
             _namePlate->UldManager.UpdateDrawNodeList();
         }
     }
 
     private void DestroyBackgrounds()
     {
+        bool removedNode = false;
+
         if (_buffsBackground is not null)
         {
-            Log.Info("destroying buffs background");
+            Log.Debug("destroying buffs background");
             Framework.RunOnFrameworkThread(() =>
             {
-                NodeLinker.DetachNode((AtkResNode*)_buffsBackground);
                 DestroyBackground(_buffsBackground);
                 _buffsBackground = null;
-
-                _namePlate->UldManager.UpdateDrawNodeList();
             });
+
+            removedNode = true;
         }
 
         if (_debuffsBackground is not null)
         {
-            Log.Info("destroying debuffs background");
-            Framework.RunOnFrameworkThread(() =>
-            {
-                NodeLinker.DetachNode((AtkResNode*)_debuffsBackground);
-                DestroyBackground(_debuffsBackground);
-                _debuffsBackground = null;
+            Log.Debug("destroying debuffs background");
+            DestroyBackground(_debuffsBackground);
+            _debuffsBackground = null;
 
-                _namePlate->UldManager.UpdateDrawNodeList();
-            });
+            removedNode = true;
         }
 
         if (_otherStatusesBackground is not null)
         {
-            Log.Info("destroying other statuses background");
-            Framework.RunOnFrameworkThread(() =>
-            {
-                NodeLinker.DetachNode((AtkResNode*)_otherStatusesBackground);
-                DestroyBackground(_otherStatusesBackground);
-                _otherStatusesBackground = null;
+            Log.Debug("destroying other statuses background");
+            DestroyBackground(_otherStatusesBackground);
+            _otherStatusesBackground = null;
 
-                _namePlate->UldManager.UpdateDrawNodeList();
-            });
+            removedNode = true;
         }
 
         if (_jobStatusBackground is not null)
         {
-            Log.Info("destroying job statuses background");
-            Framework.RunOnFrameworkThread(() =>
-            {
-                NodeLinker.DetachNode((AtkResNode*)_jobStatusBackground);
-                DestroyBackground(_jobStatusBackground);
-                _jobStatusBackground = null;
+            Log.Debug("destroying job statuses background");
+            DestroyBackground(_jobStatusBackground);
+            _jobStatusBackground = null;
 
-                _namePlate->UldManager.UpdateDrawNodeList();
-            });
+            removedNode = true;
+        }
+
+        if (removedNode)
+        {
+            _namePlate->UldManager.UpdateDrawNodeList();
         }
     }
 
-    private static AtkImageNode* CreateBackground(AtkUnitBase* statusesBar)
+    private static BackgroundNode* CreateBackground(AtkResNode* statusNode, AtkResNode* attachTarget)
     {
-        AtkUldAsset* asset = (AtkUldAsset*)IMemorySpace.GetUISpace()->Malloc<AtkUldAsset>();
-        if (asset is null)
+        BackgroundNode* backgroundNode = (BackgroundNode*)IMemorySpace.GetUISpace()->Malloc<BackgroundNode>();
+        if (backgroundNode is null)
         {
             return null;
         }
 
-        IMemorySpace.Memset(asset, 0, (ulong)sizeof(AtkUldAsset));
-        asset->AtkTexture.Ctor();
+        IMemorySpace.Memset(backgroundNode, 0, (ulong)sizeof(BackgroundNode));
+        backgroundNode->Init(statusNode);
 
-        AtkUldPart* part = (AtkUldPart*)IMemorySpace.GetUISpace()->Malloc<AtkUldPart>();
-        if (part is null)
-        {
-            IMemorySpace.Free(asset);
-            return null;
-        }
+        NodeLinker.AttachToNode((AtkResNode*)backgroundNode->ImageNode, attachTarget);
 
-        IMemorySpace.Memset(part, 0, (ulong)sizeof(AtkUldPart));
-        part->UldAsset = asset;
-
-        AtkUldPartsList* parts = (AtkUldPartsList*)IMemorySpace.GetUISpace()->Malloc<AtkUldPartsList>();
-        if (parts is null)
-        {
-            IMemorySpace.Free(asset);
-            IMemorySpace.Free(part);
-            return null;
-        }
-
-        parts->Parts = part;
-        parts->PartCount = 1;
-        parts->Id = 0;
-
-        AtkImageNode* node = IMemorySpace.GetUISpace()->Create<AtkImageNode>();
-        if (parts is null)
-        {
-            IMemorySpace.Free(asset);
-            IMemorySpace.Free(parts);
-            IMemorySpace.Free(part);
-            return null;
-        }
-
-        node->Type = NodeType.Image;
-        node->Flags = (byte)ImageNodeFlags.AutoFit;
-        node->WrapMode = 0x1;
-        node->NodeFlags = NodeFlags.Visible;
-        node->Color = new ByteColor { R = 0, G = 0, B = 0, A = 128 };
-        node->SetXFloat(statusesBar->RootNode->X);
-        node->SetYFloat(statusesBar->RootNode->Y);
-        node->SetWidth(statusesBar->RootNode->Width);
-        node->SetHeight(statusesBar->RootNode->Height);
-        node->SetScale(statusesBar->RootNode->ScaleX, statusesBar->RootNode->ScaleY);
-
-        node->PartsList = parts;
-
-        return node;
+        return backgroundNode;
     }
 
-    private static void DestroyBackground(AtkImageNode* node)
+    private static void DestroyBackground(BackgroundNode* backgroundNode)
     {
-        IMemorySpace.Free(node->PartsList->Parts->UldAsset);
-        IMemorySpace.Free(node->PartsList->Parts);
-        IMemorySpace.Free(node->PartsList);
-
-        node->Destroy(false);
-        IMemorySpace.Free(node);
+        NodeLinker.DetachNode((AtkResNode*)backgroundNode->ImageNode);
+        backgroundNode->Destroy();
+        IMemorySpace.Free(backgroundNode);
     }
 }
