@@ -1,84 +1,110 @@
 ﻿using System;
+using System.Collections.Generic;
 using FFXIVClientStructs.FFXIV.Client.System.Memory;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 
 namespace StatusContrast;
 
-public readonly unsafe struct BackgroundNodeGroup : IDisposable
+public unsafe struct BackgroundNodeGroup : IDisposable
 {
-    private readonly AtkResNode* _rootNodeToFollow;
+    private AtkResNode* _followTarget;
 
-    private readonly BackgroundNode* _backgroundNodes;
-    private readonly ulong _backgroundNodeCount;
+    private AtkResNode* _rootNode;
+    private readonly List<BackgroundNodeGroup> _children = [];
+    private readonly List<IntPtr> _backgrounds = [];
 
-    public AtkResNode* RootNode { get; }
-
-    public BackgroundNodeGroup(AtkResNode* rootNodeToFollow)
+    public BackgroundNodeGroup(AtkResNode* followTarget, AtkResNode* attachTarget)
     {
-        _rootNodeToFollow = rootNodeToFollow;
+        _followTarget = followTarget;
 
-        RootNode = (AtkResNode*)IMemorySpace.GetUISpace()->Malloc<AtkResNode>();
-        if (RootNode is null)
+        _rootNode = (AtkResNode*)IMemorySpace.GetUISpace()->Malloc<AtkResNode>();
+        if (_rootNode is null)
         {
             throw new Exception("Failed to allocate root background node");
         }
 
-        IMemorySpace.Memset(RootNode, 0, (ulong)sizeof(AtkResNode));
-        RootNode->Ctor();
-        RootNode->Type = NodeType.Res;
-        RootNode->NodeFlags = rootNodeToFollow->NodeFlags;
-        RootNode->DrawFlags = 0;
+        IMemorySpace.Memset(_rootNode, 0, (ulong)sizeof(AtkResNode));
+        _rootNode->Ctor();
+        _rootNode->Type = NodeType.Res;
+        _rootNode->DrawFlags = 0;
 
-        ulong allocSize = (ulong)sizeof(BackgroundNode) * rootNodeToFollow->ChildCount;
-        _backgroundNodes = (BackgroundNode*)IMemorySpace.GetUISpace()->Malloc(allocSize, 8);
-        if (_backgroundNodes is null)
+        AtkResNode* current = followTarget->ChildNode;
+        while (current != null)
         {
-            throw new Exception("Failed to allocate background nodes");
-        }
+            Plugin.Log.Debug("current: {current}, childCount: {childCount}", (nint)current, followTarget->ChildCount);
+            if (current->Type == NodeType.Res && current->ChildNode != null)
+            {
+                _children.Add(new BackgroundNodeGroup(current, _rootNode));
+            }
 
-        IMemorySpace.Memset(_backgroundNodes, 0, allocSize);
-        _backgroundNodeCount = rootNodeToFollow->ChildCount;
-
-        AtkResNode* current = rootNodeToFollow->ChildNode;
-        for (ulong i = 0; i < _backgroundNodeCount; i++)
-        {
-            _backgroundNodes[i].Init(current);
-
-            // We only want nodes with type 1001
+            // Statuses are of type 1001
             if ((ushort)current->Type == 1001)
             {
-                NodeLinker.AttachToNode((AtkResNode*)_backgroundNodes[i].ImageNode, RootNode);
+                BackgroundNode* backgroundNode = (BackgroundNode*)IMemorySpace.GetUISpace()->Malloc<BackgroundNode>();
+                if (backgroundNode is null)
+                {
+                    throw new Exception("Failed to allocate background node");
+                }
+
+                IMemorySpace.Memset(backgroundNode, 0, (ulong)sizeof(BackgroundNode));
+                backgroundNode->Init(current);
+
+                _backgrounds.Add((IntPtr)backgroundNode);
+                NodeLinker.AttachToNode((AtkResNode*)backgroundNode->ImageNode, _rootNode);
             }
 
             current = current->PrevSiblingNode;
         }
 
         Update();
+        NodeLinker.AttachToNode(_rootNode, attachTarget);
     }
 
     public void Dispose()
     {
-        for (ulong i = 0; i < _backgroundNodeCount; i++)
+        foreach (IntPtr background in _backgrounds)
         {
-            NodeLinker.DetachNode((AtkResNode*)_backgroundNodes[i].ImageNode);
-            _backgroundNodes[i].Destroy();
+            BackgroundNode* backgroundNode = (BackgroundNode*)background;
+            NodeLinker.DetachNode((AtkResNode*)backgroundNode->ImageNode);
+
+            backgroundNode->Destroy();
+            IMemorySpace.Free(backgroundNode);
         }
 
-        IMemorySpace.Free(_backgroundNodes);
-        IMemorySpace.Free(RootNode);
+        _backgrounds.Clear();
+
+        foreach (BackgroundNodeGroup group in _children)
+        {
+            group.Dispose();
+        }
+
+        _children.Clear();
+
+        NodeLinker.DetachNode(_rootNode);
+        IMemorySpace.Free(_rootNode);
+
+        _rootNode = null;
+        _followTarget = null;
     }
 
     public void Update()
     {
-        RootNode->SetXFloat(_rootNodeToFollow->X);
-        RootNode->SetYFloat(_rootNodeToFollow->Y);
-        RootNode->SetWidth(_rootNodeToFollow->Width);
-        RootNode->SetHeight(_rootNodeToFollow->Height);
-        RootNode->SetScale(_rootNodeToFollow->ScaleX, _rootNodeToFollow->ScaleY);
+        _rootNode->NodeFlags = _followTarget->NodeFlags;
+        _rootNode->SetXFloat(_followTarget->X);
+        _rootNode->SetYFloat(_followTarget->Y);
+        _rootNode->SetWidth(_followTarget->Width);
+        _rootNode->SetHeight(_followTarget->Height);
+        _rootNode->SetScale(_followTarget->ScaleX, _followTarget->ScaleY);
 
-        for (ulong i = 0; i < _backgroundNodeCount; i++)
+        foreach (BackgroundNodeGroup child in _children)
         {
-            _backgroundNodes[i].Update();
+            child.Update();
+        }
+
+        foreach (IntPtr backgroundPtr in _backgrounds)
+        {
+            BackgroundNode* background = (BackgroundNode*)backgroundPtr;
+            background->Update();
         }
     }
 }

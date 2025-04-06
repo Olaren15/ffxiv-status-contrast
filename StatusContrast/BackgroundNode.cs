@@ -47,8 +47,7 @@ public unsafe struct BackgroundNode
         _imageNode.NodeFlags = _nodeToFollow->NodeFlags;
         _imageNode.SetXFloat(_nodeToFollow->X);
         _imageNode.SetYFloat(_nodeToFollow->Y);
-        // Fill gaps with one more pixel
-        _imageNode.SetWidth((ushort)(_nodeToFollow->Width + 1));
+        _imageNode.SetWidth((_nodeToFollow->Width));
         _imageNode.SetHeight(_nodeToFollow->Height);
         _imageNode.SetScale(_nodeToFollow->ScaleX, _nodeToFollow->ScaleY);
     }
