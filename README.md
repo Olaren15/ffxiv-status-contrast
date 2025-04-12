@@ -3,7 +3,11 @@
 Status Contrast is a [Dalamud](https://github.com/goatcorp/Dalamud) plugin that adds backgrounds to status effect icons
 in order to increase contrast and legibility
 
-![A screenshot showing the background effect on status icons](doc/status-background.png)
+Examples:
+
+![A screenshot showing the background effect on player buffs](docs/player-buffs.png)
+
+![A screenshot showing the background effect on target debuffs](docs/target-debuffs.png)
 
 ## How To Install
 
