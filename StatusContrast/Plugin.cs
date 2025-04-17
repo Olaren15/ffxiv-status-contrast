@@ -143,6 +143,8 @@ public sealed unsafe class Plugin : IDalamudPlugin
             removedNode = true;
         }
 
+        _backgrounds.Clear();
+
         if (removedNode)
         {
             _namePlate->UldManager.UpdateDrawNodeList();
