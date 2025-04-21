@@ -11,7 +11,8 @@ Examples:
 
 ## How To Install
 
-StatusContrast is currently very experimental and not publicly available yet
+StatusContrast is currently available on Dalamud's testing repository. You need to enable plugin testing builds in order
+to see this StatusContrast in the plugin installer window.
 
 ## For developers
 

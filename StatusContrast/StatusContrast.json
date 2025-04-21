@@ -1,8 +1,8 @@
 {
-  "Author": "your name here",
+  "Author": "Olaren",
   "Name": "Status Contrast",
   "Punchline": "Add contrast to your status icons",
-  "Description": "",
+  "Description": "You will finally be able to easily see the timer of your buffs/debuffs properly when the arena background is bright!",
   "ApplicableVersion": "any",
   "Tags": ["ui"]
 }
