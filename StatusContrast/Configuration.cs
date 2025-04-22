@@ -7,4 +7,6 @@ namespace StatusContrast;
 public record Configuration : IPluginConfiguration
 {
     public int Version { get; set; } = 1;
+    public bool Preview { get; set; } = false;
+    public Color Color { get; set; } = new(0, 0, 0, 128);
 }
