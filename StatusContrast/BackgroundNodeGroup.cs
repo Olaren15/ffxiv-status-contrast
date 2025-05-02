@@ -5,7 +5,7 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 
 namespace StatusContrast;
 
-public unsafe struct BackgroundNodeGroup : IDisposable
+public unsafe class BackgroundNodeGroup : IDisposable
 {
     private AtkResNode* _followTarget;
 
@@ -13,7 +13,7 @@ public unsafe struct BackgroundNodeGroup : IDisposable
     private readonly List<BackgroundNodeGroup> _children = [];
     private readonly List<IntPtr> _backgrounds = [];
 
-    public BackgroundNodeGroup(AtkResNode* followTarget, AtkResNode* attachTarget)
+    public BackgroundNodeGroup(AtkResNode* followTarget, AtkResNode* attachTarget, Configuration configuration)
     {
         _followTarget = followTarget;
 
@@ -31,10 +31,9 @@ public unsafe struct BackgroundNodeGroup : IDisposable
         AtkResNode* current = followTarget->ChildNode;
         while (current != null)
         {
-            Plugin.Log.Debug("current: {current}, childCount: {childCount}", (nint)current, followTarget->ChildCount);
             if (current->Type == NodeType.Res && current->ChildNode != null)
             {
-                _children.Add(new BackgroundNodeGroup(current, _rootNode));
+                _children.Add(new BackgroundNodeGroup(current, _rootNode, configuration));
             }
 
             // Statuses are of type 1001
@@ -47,7 +46,7 @@ public unsafe struct BackgroundNodeGroup : IDisposable
                 }
 
                 IMemorySpace.Memset(backgroundNode, 0, (ulong)sizeof(BackgroundNode));
-                backgroundNode->Init(current);
+                backgroundNode->Init(current, configuration);
 
                 _backgrounds.Add((IntPtr)backgroundNode);
                 NodeLinker.AttachToNode((AtkResNode*)backgroundNode->ImageNode, _rootNode);
@@ -85,6 +84,24 @@ public unsafe struct BackgroundNodeGroup : IDisposable
 
         _rootNode = null;
         _followTarget = null;
+
+        GC.SuppressFinalize(this);
+    }
+
+    public void SetConfiguration(Configuration configuration)
+    {
+        foreach (BackgroundNodeGroup backgound in _children)
+        {
+            backgound.SetConfiguration(configuration);
+        }
+
+        foreach (IntPtr backgroundPtr in _backgrounds)
+        {
+            BackgroundNode* background = (BackgroundNode*)backgroundPtr;
+            background->PreviewEnabled = configuration.Preview;
+            background->FixGapsEnabled = configuration.FixGaps;
+            background->Color = configuration.Color;
+        }
     }
 
     public void Update()
