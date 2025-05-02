@@ -10,7 +10,7 @@ public unsafe class BackgroundNodeGroup : IDisposable
     private AtkResNode* _followTarget;
 
     private AtkResNode* _rootNode;
-    private List<BackgroundNodeGroup> _children = [];
+    private readonly List<BackgroundNodeGroup> _children = [];
     private readonly List<IntPtr> _backgrounds = [];
 
     public BackgroundNodeGroup(AtkResNode* followTarget, AtkResNode* attachTarget, Configuration configuration)
