@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
 using ImGuiNET;
 
@@ -6,9 +7,10 @@ namespace StatusContrast;
 
 public class SettingsWindow : Window
 {
-    private bool _preview;
-    private Vector4 _color;
     private readonly ConfigurationRepository _configurationRepository;
+    private Vector4 _color;
+    private bool _fixGaps;
+    private bool _preview;
 
     public SettingsWindow(ConfigurationRepository configurationRepository) : base(
         "StatusContrast Settings###StatusContrast settings")
@@ -20,8 +22,11 @@ public class SettingsWindow : Window
             MinimumSize = new Vector2(200, 100), MaximumSize = new Vector2(float.MaxValue, float.MaxValue)
         };
 
-        _preview = _configurationRepository.GetConfiguration().Preview;
-        _color = configurationRepository.GetConfiguration().Color.ToVector4();
+        Configuration config = _configurationRepository.GetConfiguration();
+
+        _preview = config.Preview;
+        _fixGaps = config.FixGaps;
+        _color = config.Color.ToVector4();
     }
 
     public void Show()
@@ -33,13 +38,25 @@ public class SettingsWindow : Window
     {
         ImGui.Checkbox("Preview", ref _preview);
 
+        ImGui.Checkbox("Fix Gaps", ref _fixGaps);
+        ImGui.SameLine();
+        ImGui.TextDisabled("(?)");
+        if (ImGui.IsItemHovered())
+        {
+            using (ImRaii.Tooltip())
+            {
+                ImGui.TextUnformatted("For some reason, the game has inconsistent spacing between status icons.\n" +
+                                      "You probably want this setting on, but the toggle is here if you want to disable it");
+            }
+        }
+
         ImGui.ColorEdit4("Background", ref _color,
             ImGuiColorEditFlags.InputRGB | ImGuiColorEditFlags.PickerHueBar | ImGuiColorEditFlags.AlphaBar |
             ImGuiColorEditFlags.Float | ImGuiColorEditFlags.DisplayRGB);
 
         _configurationRepository.UpdateConfiguration(new Configuration
         {
-            Version = 1, Preview = _preview, Color = new Color(_color)
+            Version = 1, Preview = _preview, FixGaps = _fixGaps, Color = new Color(_color)
         });
     }
 }

@@ -99,6 +99,7 @@ public unsafe class BackgroundNodeGroup : IDisposable
         {
             BackgroundNode* background = (BackgroundNode*)backgroundPtr;
             background->PreviewEnabled = configuration.Preview;
+            background->FixGapsEnabled = configuration.FixGaps;
             background->Color = configuration.Color;
         }
     }

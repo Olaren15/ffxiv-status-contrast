@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Drawing;
+using System.Runtime.CompilerServices;
 using FFXIVClientStructs.FFXIV.Client.Graphics;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 
@@ -14,6 +15,7 @@ public unsafe struct BackgroundNode
 
     public AtkImageNode* ImageNode => (AtkImageNode*)Unsafe.AsPointer(ref _imageNode);
     public bool PreviewEnabled { get; set; }
+    public bool FixGapsEnabled { get; set; }
     public Color Color { get; set; }
 
     public void Init(AtkResNode* nodetoFollow, Configuration configuration)
@@ -55,16 +57,54 @@ public unsafe struct BackgroundNode
             nodeFlags |= NodeFlags.Visible;
         }
 
+        Rectangle bounds = ComputeBounds();
+
         _imageNode.NodeFlags = nodeFlags;
-        _imageNode.SetXFloat(_nodeToFollow->X);
-        _imageNode.SetYFloat(_nodeToFollow->Y);
-        _imageNode.SetWidth(_nodeToFollow->Width);
-        _imageNode.SetHeight(_nodeToFollow->Height);
-        _imageNode.SetScale(_nodeToFollow->ScaleX, _nodeToFollow->ScaleY);
+        _imageNode.SetXFloat(bounds.Left);
+        _imageNode.SetYFloat(bounds.Top);
+        _imageNode.SetWidth((ushort)bounds.Width);
+        _imageNode.SetHeight((ushort)bounds.Height);
+        _imageNode.SetScale(_nodeToFollow->GetScaleX(), _nodeToFollow->GetScaleY());
 
         _imageNode.Color = new ByteColor { R = 0, G = 0, B = 0, A = Color.A };
         _imageNode.AddRed = Color.R;
         _imageNode.AddGreen = Color.G;
         _imageNode.AddBlue = Color.B;
+    }
+
+    private Rectangle ComputeBounds()
+    {
+        Rectangle bounds = new()
+        {
+            X = _nodeToFollow->GetXShort(),
+            Y = _nodeToFollow->GetYShort(),
+            Width = _nodeToFollow->GetWidth(),
+            Height = _nodeToFollow->GetHeight()
+        };
+
+        if (!FixGapsEnabled
+            || _nodeToFollow->PrevSiblingNode == null
+            || _nodeToFollow->PrevSiblingNode->GetYShort() != _nodeToFollow->GetYShort())
+        {
+            return bounds;
+        }
+
+        // Left justified
+        if (_nodeToFollow->PrevSiblingNode->GetXShort() < _nodeToFollow->GetXShort())
+        {
+            int prevNodeRightEdge = _nodeToFollow->PrevSiblingNode->GetXShort()
+                                    + _nodeToFollow->PrevSiblingNode->GetWidth();
+            int gap = _nodeToFollow->GetXShort() - prevNodeRightEdge;
+
+            bounds.X -= gap;
+            bounds.Width += gap;
+        }
+        // Right justified
+        else
+        {
+            bounds.Width = _nodeToFollow->PrevSiblingNode->GetXShort() - _nodeToFollow->GetXShort();
+        }
+
+        return bounds;
     }
 }
