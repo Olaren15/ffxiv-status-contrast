@@ -26,7 +26,7 @@ public class SettingsWindow : Window
 
         _preview = config.Preview;
         _fixGaps = config.FixGaps;
-        _color = config.Color.ToVector4();
+        _color = config.Color;
     }
 
     public void Show()
@@ -56,7 +56,7 @@ public class SettingsWindow : Window
 
         _configurationRepository.UpdateConfiguration(new Configuration
         {
-            Version = 1, Preview = _preview, FixGaps = _fixGaps, Color = new Color(_color)
+            Version = 1, Preview = _preview, FixGaps = _fixGaps, Color = _color
         });
     }
 }

@@ -1,4 +1,5 @@
 ﻿using System.Drawing;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using FFXIVClientStructs.FFXIV.Client.Graphics;
 using FFXIVClientStructs.FFXIV.Component.GUI;
@@ -16,11 +17,12 @@ public unsafe struct BackgroundNode
     public AtkImageNode* ImageNode => (AtkImageNode*)Unsafe.AsPointer(ref _imageNode);
     public bool PreviewEnabled { get; set; }
     public bool FixGapsEnabled { get; set; }
-    public Color Color { get; set; }
+    public Vector4 Color { get; set; }
 
     public void Init(AtkResNode* nodetoFollow, Configuration configuration)
     {
         PreviewEnabled = configuration.Preview;
+        FixGapsEnabled = configuration.FixGaps;
         Color = configuration.Color;
 
         _nodeToFollow = nodetoFollow;
@@ -66,10 +68,10 @@ public unsafe struct BackgroundNode
         _imageNode.SetHeight((ushort)bounds.Height);
         _imageNode.SetScale(_nodeToFollow->GetScaleX(), _nodeToFollow->GetScaleY());
 
-        _imageNode.Color = new ByteColor { R = 0, G = 0, B = 0, A = Color.A };
-        _imageNode.AddRed = Color.R;
-        _imageNode.AddGreen = Color.G;
-        _imageNode.AddBlue = Color.B;
+        _imageNode.Color = new ByteColor { R = 0, G = 0, B = 0, A = (byte)(Color.W * 255) };
+        _imageNode.AddRed = (byte)(Color.X * 255);
+        _imageNode.AddGreen = (byte)(Color.Y * 255);
+        _imageNode.AddBlue = (byte)(Color.Z * 255);
     }
 
     private Rectangle ComputeBounds()
