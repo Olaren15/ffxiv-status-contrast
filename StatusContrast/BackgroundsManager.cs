@@ -17,6 +17,7 @@ public sealed unsafe class BackgroundsManager : IDisposable
     private readonly IAddonLifecycle _addonLifecycle;
     private readonly IPluginLog _log;
     private readonly ConfigurationRepository _configurationRepository;
+    private readonly NodeIdProvider _idProvider;
 
     private AddonNamePlate* _namePlate;
     private readonly List<IntPtr> _followTargetsBuffer = [];
@@ -31,6 +32,8 @@ public sealed unsafe class BackgroundsManager : IDisposable
         _log = log;
         _configurationRepository = configurationRepository;
 
+        _idProvider = new NodeIdProvider(69000); // Nice
+
         _configurationRepository.ConfigurationUpdated += UpdateConfiguration;
 
         List<string> addonNamesToFollow =
@@ -39,7 +42,10 @@ public sealed unsafe class BackgroundsManager : IDisposable
             "_StatusCustom1",
             "_StatusCustom2",
             "_StatusCustom3",
-            "_TargetInfoBuffDebuff"
+            "_TargetInfoBuffDebuff",
+            "_TargetInfo",
+            "_FocusTargetInfo",
+            "_PartyList"
         ];
 
         // Try to get addons if plugin is loaded when the ui is loaded
@@ -115,7 +121,7 @@ public sealed unsafe class BackgroundsManager : IDisposable
             }
 
             _log.Debug("Creating background for {addonName}", addonName);
-            _backgrounds.Add(addonName, new BackgroundNodeGroup(followTargetAtk->RootNode, _namePlate->RootNode, _configurationRepository.GetConfiguration()));
+            _backgrounds.Add(addonName, new BackgroundNodeGroup(followTargetAtk->RootNode, _namePlate->RootNode, _configurationRepository.GetConfiguration(), _idProvider));
             addedNode = true;
         }
 

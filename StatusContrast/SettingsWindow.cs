@@ -19,7 +19,8 @@ public class SettingsWindow : Window
 
         SizeConstraints = new WindowSizeConstraints
         {
-            MinimumSize = new Vector2(400, 200), MaximumSize = new Vector2(float.MaxValue, float.MaxValue)
+            MinimumSize = new Vector2(400, 200),
+            MaximumSize = new Vector2(float.MaxValue, float.MaxValue)
         };
 
         Configuration config = _configurationRepository.GetConfiguration();
@@ -53,7 +54,10 @@ public class SettingsWindow : Window
 
         _configurationRepository.UpdateConfiguration(new Configuration
         {
-            Version = 1, Preview = _preview, FixGaps = _fixGaps, Color = _color
+            Version = 1,
+            Preview = _preview,
+            FixGaps = _fixGaps,
+            Color = _color
         });
     }
 

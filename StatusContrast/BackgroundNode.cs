@@ -1,8 +1,8 @@
-﻿using System.Drawing;
-using System.Numerics;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using FFXIVClientStructs.FFXIV.Client.Graphics;
+using FFXIVClientStructs.FFXIV.Common.Math;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using Vector4 = System.Numerics.Vector4;
 
 namespace StatusContrast;
 
@@ -13,19 +13,21 @@ public unsafe struct BackgroundNode
     private AtkUldPartsList _parts;
     private AtkImageNode _imageNode;
     private AtkResNode* _nodeToFollow;
+    private AtkResNode* _addonRootNode;
 
     public AtkImageNode* ImageNode => (AtkImageNode*)Unsafe.AsPointer(ref _imageNode);
     public bool PreviewEnabled { get; set; }
     public bool FixGapsEnabled { get; set; }
     public Vector4 Color { get; set; }
 
-    public void Init(AtkResNode* nodetoFollow, Configuration configuration)
+    public void Init(AtkResNode* nodetoFollow, AtkResNode* addonRootNode, Configuration configuration, NodeIdProvider idProvider)
     {
+        _nodeToFollow = nodetoFollow;
+        _addonRootNode = addonRootNode;
+
         PreviewEnabled = configuration.Preview;
         FixGapsEnabled = configuration.FixGaps;
         Color = configuration.Color;
-
-        _nodeToFollow = nodetoFollow;
 
         _asset.AtkTexture.Ctor();
 
@@ -33,9 +35,10 @@ public unsafe struct BackgroundNode
 
         _parts.Parts = (AtkUldPart*)Unsafe.AsPointer(ref _part);
         _parts.PartCount = 1;
-        _parts.Id = 0;
+        _parts.Id = idProvider.GetNext();
 
         _imageNode.Ctor();
+        _imageNode.NodeId = idProvider.GetNext();
         _imageNode.Type = NodeType.Image;
         _imageNode.Flags = (byte)ImageNodeFlags.AutoFit;
         _imageNode.WrapMode = 0x1;
@@ -48,6 +51,8 @@ public unsafe struct BackgroundNode
     {
         _asset.AtkTexture.Destroy(false);
         _imageNode.Destroy(false);
+        _nodeToFollow = null;
+        _addonRootNode = null;
     }
 
     public void Update()
@@ -59,14 +64,15 @@ public unsafe struct BackgroundNode
             nodeFlags |= NodeFlags.Visible;
         }
 
-        Rectangle bounds = ComputeBounds();
+        nodeFlags &= _addonRootNode->NodeFlags &= NodeFlags.Visible;
+
+        Bounds bounds = ComputeBounds();
 
         _imageNode.NodeFlags = nodeFlags;
-        _imageNode.SetXFloat(bounds.Left);
-        _imageNode.SetYFloat(bounds.Top);
+        _imageNode.SetXShort((short)bounds.Pos1.X);
+        _imageNode.SetYShort((short)bounds.Pos1.Y);
         _imageNode.SetWidth((ushort)bounds.Width);
         _imageNode.SetHeight((ushort)bounds.Height);
-        _imageNode.SetScale(_nodeToFollow->GetScaleX(), _nodeToFollow->GetScaleY());
 
         _imageNode.Color = new ByteColor { R = 0, G = 0, B = 0, A = (byte)(Color.W * 255) };
         _imageNode.AddRed = (byte)(Color.X * 255);
@@ -74,37 +80,34 @@ public unsafe struct BackgroundNode
         _imageNode.AddBlue = (byte)(Color.Z * 255);
     }
 
-    private Rectangle ComputeBounds()
+    private Bounds ComputeBounds()
     {
-        Rectangle bounds = new()
-        {
-            X = _nodeToFollow->GetXShort(),
-            Y = _nodeToFollow->GetYShort(),
-            Width = _nodeToFollow->GetWidth(),
-            Height = _nodeToFollow->GetHeight()
-        };
+        Bounds bounds = new();
+        _nodeToFollow->GetBounds(&bounds);
 
-        if (!FixGapsEnabled
-            || _nodeToFollow->PrevSiblingNode == null
-            || _nodeToFollow->PrevSiblingNode->GetYShort() != _nodeToFollow->GetYShort())
+        if (!FixGapsEnabled || _nodeToFollow->PrevSiblingNode == null)
         {
             return bounds;
         }
 
-        // Left justified
-        if (_nodeToFollow->PrevSiblingNode->GetXShort() < _nodeToFollow->GetXShort())
-        {
-            int prevNodeRightEdge = _nodeToFollow->PrevSiblingNode->GetXShort()
-                                    + _nodeToFollow->PrevSiblingNode->GetWidth();
-            int gap = _nodeToFollow->GetXShort() - prevNodeRightEdge;
+        Bounds prevSiblingBounds = new();
+        _nodeToFollow->PrevSiblingNode->GetBounds(&prevSiblingBounds);
 
-            bounds.X -= gap;
-            bounds.Width += gap;
+        if (bounds.Pos1.Y != prevSiblingBounds.Pos1.Y)
+        {
+            // Different row, no need for gap correction
+            return bounds;
+        }
+
+        // Left justified
+        if (prevSiblingBounds.Pos1.X < bounds.Pos1.X)
+        {
+            bounds.Pos1.X = prevSiblingBounds.Pos2.X;
         }
         // Right justified
         else
         {
-            bounds.Width = _nodeToFollow->PrevSiblingNode->GetXShort() - _nodeToFollow->GetXShort();
+            bounds.Pos2.X = prevSiblingBounds.Pos1.X;
         }
 
         return bounds;
