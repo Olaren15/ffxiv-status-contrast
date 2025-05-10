@@ -12,6 +12,18 @@ public sealed unsafe class BackgroundsManager : IDisposable
 {
     private const string NamePlateAddonName = "NamePlate";
     private readonly IAddonLifecycle _addonLifecycle;
+
+    private readonly List<string> _addonNamesToFollow =
+    [
+        "_StatusCustom0",
+        "_StatusCustom1",
+        "_StatusCustom2",
+        "_StatusCustom3",
+        "_TargetInfoBuffDebuff",
+        "_TargetInfo",
+        "_FocusTargetInfo"
+    ];
+
     private readonly Dictionary<string, BackgroundNodeGroup> _backgrounds = new();
     private readonly ConfigurationRepository _configurationRepository;
     private readonly List<Pointer<AtkUnitBase>> _followTargetsBuffer = [];
@@ -36,18 +48,6 @@ public sealed unsafe class BackgroundsManager : IDisposable
 
         _configurationRepository.ConfigurationUpdated += UpdateConfiguration;
 
-        List<string> addonNamesToFollow =
-        [
-            "_StatusCustom0",
-            "_StatusCustom1",
-            "_StatusCustom2",
-            "_StatusCustom3",
-            "_TargetInfoBuffDebuff",
-            "_TargetInfo",
-            "_FocusTargetInfo"
-            // "_PartyList"
-        ];
-
         // Try to get addons if plugin is loaded when the ui is loaded
         _namePlate = (AddonNamePlate*)_gameGui.GetAddonByName(NamePlateAddonName);
 
@@ -60,7 +60,7 @@ public sealed unsafe class BackgroundsManager : IDisposable
             _namePlate = null;
         });
 
-        foreach (string addonName in addonNamesToFollow)
+        foreach (string addonName in _addonNamesToFollow)
         {
             // Try to get addons if plugin is loaded when the ui is loaded
             _followTargetsBuffer.AddIfNotNull((AtkUnitBase*)_gameGui.GetAddonByName(addonName));
@@ -76,6 +76,17 @@ public sealed unsafe class BackgroundsManager : IDisposable
     public void Dispose()
     {
         _framework.RunOnFrameworkThread(DestroyBackgrounds).Wait();
+        foreach (string addonName in _addonNamesToFollow)
+        {
+            _addonLifecycle.UnregisterListener(AddonEvent.PostSetup, addonName);
+            _addonLifecycle.UnregisterListener(AddonEvent.PreFinalize, addonName);
+        }
+
+        _addonLifecycle.UnregisterListener(AddonEvent.PreRequestedUpdate, "_PartyList");
+
+        _addonLifecycle.UnregisterListener(AddonEvent.PostSetup, NamePlateAddonName);
+        _addonLifecycle.UnregisterListener(AddonEvent.PreFinalize, NamePlateAddonName);
+
         _configurationRepository.ConfigurationUpdated -= UpdateConfiguration;
     }
 
@@ -109,27 +120,14 @@ public sealed unsafe class BackgroundsManager : IDisposable
 
             _log.Debug("Creating background for {addonName}", addonName);
 
-            if (addonName == "_PartyList")
-            {
-                _backgrounds.Add(addonName,
-                    new BackgroundNodeGroup(
-                        new PartyListStatusNodeFinder((AddonPartyList*)followTarget),
-                        _namePlate->RootNode,
-                        _configurationRepository.GetConfiguration(),
-                        _idProvider
-                    ));
-            }
-            else
-            {
-                _backgrounds.Add(addonName,
-                    new BackgroundNodeGroup(
-                        new GenericStatusNodeFinder(followTarget->RootNode),
-                        _namePlate->RootNode,
-                        _configurationRepository.GetConfiguration(),
-                        _idProvider
-                    )
-                );
-            }
+            _backgrounds.Add(addonName,
+                new BackgroundNodeGroup(
+                    new GenericStatusNodeFinder(followTarget->RootNode),
+                    _namePlate->RootNode,
+                    _configurationRepository.GetConfiguration(),
+                    _idProvider
+                )
+            );
 
             addedNode = true;
         }

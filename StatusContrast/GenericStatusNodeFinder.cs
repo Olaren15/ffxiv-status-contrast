@@ -12,16 +12,15 @@ public unsafe class GenericStatusNodeFinder(AtkResNode* addonRootNode) : IStatus
         // Travers node tree to find status nodes
         while (current != null)
         {
-            if (current->ChildNode != null)
-            {
-                current = current->ChildNode;
-                continue;
-            }
-
             // Statuses are of type 1001
             if ((ushort)current->Type == 1001)
             {
                 action(current, addonRootNode);
+            }
+            else if (current->ChildNode != null)
+            {
+                current = current->ChildNode;
+                continue;
             }
 
             if (current->PrevSiblingNode != null)
