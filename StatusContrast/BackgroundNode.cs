@@ -20,7 +20,8 @@ public unsafe struct BackgroundNode
     public bool FixGapsEnabled { get; set; }
     public Vector4 Color { get; set; }
 
-    public void Init(AtkResNode* nodetoFollow, AtkResNode* addonRootNode, Configuration configuration, NodeIdProvider idProvider)
+    public void Init(AtkResNode* nodetoFollow, AtkResNode* addonRootNode, Configuration configuration,
+        NodeIdProvider idProvider)
     {
         _nodeToFollow = nodetoFollow;
         _addonRootNode = addonRootNode;
@@ -64,7 +65,10 @@ public unsafe struct BackgroundNode
             nodeFlags |= NodeFlags.Visible;
         }
 
-        nodeFlags &= _addonRootNode->NodeFlags &= NodeFlags.Visible;
+        if (_addonRootNode != null)
+        {
+            nodeFlags &= _addonRootNode->NodeFlags &= NodeFlags.Visible;
+        }
 
         Bounds bounds = ComputeBounds();
 

@@ -2,71 +2,35 @@
 using System.Collections.Generic;
 using FFXIVClientStructs.FFXIV.Client.System.Memory;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using FFXIVClientStructs.Interop;
 
 namespace StatusContrast;
 
 public unsafe class BackgroundNodeGroup : IDisposable
 {
-    private readonly List<IntPtr> _backgrounds = [];
+    private readonly AtkResNode* _attachTarget;
+    private readonly List<Pointer<BackgroundNode>> _backgrounds = [];
     private readonly NodeIdProvider _idProvider;
 
-    public BackgroundNodeGroup(AtkResNode* addonRootNode, AtkResNode* attachTarget, Configuration configuration, NodeIdProvider idProvider)
+    public BackgroundNodeGroup(IStatusNodeFinder statusNodeFinder, AtkResNode* attachTarget,
+        Configuration configuration, NodeIdProvider idProvider)
     {
+        _attachTarget = attachTarget;
         _idProvider = idProvider;
 
-        AtkResNode* current = addonRootNode;
-        // Travers node tree to find status nodes
-        while (current != null)
-        {
-            if (current->ChildNode != null)
-            {
-                current = current->ChildNode;
-                continue;
-            }
-
-            // Statuses are of type 1001
-            if ((ushort)current->Type == 1001)
-            {
-                CreateBackground(current, addonRootNode, attachTarget, configuration);
-            }
-
-            if (current->PrevSiblingNode != null)
-            {
-                current = current->PrevSiblingNode;
-                continue;
-            }
-
-            AtkResNode* nextParent = current->ParentNode;
-            while (true)
-            {
-                if (nextParent == addonRootNode)
-                {
-                    current = null;
-                    break;
-                }
-
-                if (nextParent->PrevSiblingNode != null)
-                {
-                    current = nextParent->PrevSiblingNode;
-                    break;
-                }
-
-                nextParent = nextParent->ParentNode;
-            }
-        }
+        statusNodeFinder.ForEachNode((node, rootNode) => CreateBackground(node, rootNode, configuration));
 
         Update();
     }
 
     public void Dispose()
     {
-        foreach (IntPtr background in _backgrounds)
+        foreach (BackgroundNode* background in _backgrounds)
         {
-            BackgroundNode* backgroundNode = (BackgroundNode*)background;
-            NodeLinker.DetachNode((AtkResNode*)backgroundNode->ImageNode);
+            NodeLinker.DetachNode((AtkResNode*)background->ImageNode);
 
-            backgroundNode->Destroy();
-            IMemorySpace.Free(backgroundNode);
+            background->Destroy();
+            IMemorySpace.Free(background);
         }
 
         _backgrounds.Clear();
@@ -74,7 +38,7 @@ public unsafe class BackgroundNodeGroup : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private void CreateBackground(AtkResNode* current, AtkResNode* addonRootNode, AtkResNode* attachTarget,
+    private void CreateBackground(AtkResNode* node, AtkResNode* addonRootNode,
         Configuration configuration)
     {
         BackgroundNode* backgroundNode = (BackgroundNode*)IMemorySpace.GetUISpace()->Malloc<BackgroundNode>();
@@ -84,17 +48,16 @@ public unsafe class BackgroundNodeGroup : IDisposable
         }
 
         IMemorySpace.Memset(backgroundNode, 0, (ulong)sizeof(BackgroundNode));
-        backgroundNode->Init(current, addonRootNode, configuration, _idProvider);
+        backgroundNode->Init(node, addonRootNode, configuration, _idProvider);
 
-        _backgrounds.Add((IntPtr)backgroundNode);
-        NodeLinker.AttachToNode((AtkResNode*)backgroundNode->ImageNode, attachTarget);
+        _backgrounds.Add(backgroundNode);
+        NodeLinker.AttachToNode((AtkResNode*)backgroundNode->ImageNode, _attachTarget);
     }
 
     public void SetConfiguration(Configuration configuration)
     {
-        foreach (IntPtr backgroundPtr in _backgrounds)
+        foreach (BackgroundNode* background in _backgrounds)
         {
-            BackgroundNode* background = (BackgroundNode*)backgroundPtr;
             background->PreviewEnabled = configuration.Preview;
             background->FixGapsEnabled = configuration.FixGaps;
             background->Color = configuration.Color;
@@ -103,9 +66,8 @@ public unsafe class BackgroundNodeGroup : IDisposable
 
     public void Update()
     {
-        foreach (IntPtr backgroundPtr in _backgrounds)
+        foreach (BackgroundNode* background in _backgrounds)
         {
-            BackgroundNode* background = (BackgroundNode*)backgroundPtr;
             background->Update();
         }
     }

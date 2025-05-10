@@ -4,24 +4,24 @@ using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
-using Serilog;
+using FFXIVClientStructs.Interop;
 
 namespace StatusContrast;
 
 public sealed unsafe class BackgroundsManager : IDisposable
 {
     private const string NamePlateAddonName = "NamePlate";
+    private readonly IAddonLifecycle _addonLifecycle;
+    private readonly Dictionary<string, BackgroundNodeGroup> _backgrounds = new();
+    private readonly ConfigurationRepository _configurationRepository;
+    private readonly List<Pointer<AtkUnitBase>> _followTargetsBuffer = [];
 
     private readonly IFramework _framework;
     private readonly IGameGui _gameGui;
-    private readonly IAddonLifecycle _addonLifecycle;
-    private readonly IPluginLog _log;
-    private readonly ConfigurationRepository _configurationRepository;
     private readonly NodeIdProvider _idProvider;
+    private readonly IPluginLog _log;
 
     private AddonNamePlate* _namePlate;
-    private readonly List<IntPtr> _followTargetsBuffer = [];
-    private readonly Dictionary<string, BackgroundNodeGroup> _backgrounds = new();
 
     public BackgroundsManager(IFramework framework, IGameGui gameGui, IAddonLifecycle addonLifecycle, IPluginLog log,
         ConfigurationRepository configurationRepository)
@@ -44,8 +44,8 @@ public sealed unsafe class BackgroundsManager : IDisposable
             "_StatusCustom3",
             "_TargetInfoBuffDebuff",
             "_TargetInfo",
-            "_FocusTargetInfo",
-            "_PartyList"
+            "_FocusTargetInfo"
+            // "_PartyList"
         ];
 
         // Try to get addons if plugin is loaded when the ui is loaded
@@ -63,14 +63,20 @@ public sealed unsafe class BackgroundsManager : IDisposable
         foreach (string addonName in addonNamesToFollow)
         {
             // Try to get addons if plugin is loaded when the ui is loaded
-            _followTargetsBuffer.AddIfNotNull(_gameGui.GetAddonByName(addonName));
+            _followTargetsBuffer.AddIfNotNull((AtkUnitBase*)_gameGui.GetAddonByName(addonName));
 
             // Otherwise wait until ui is available
             _addonLifecycle.RegisterListener(AddonEvent.PostSetup, addonName,
-                (_, args) => _followTargetsBuffer.AddIfNotNull(args.Addon));
+                (_, args) => _followTargetsBuffer.AddIfNotNull((AtkUnitBase*)args.Addon));
             _addonLifecycle.RegisterListener(AddonEvent.PreFinalize, addonName,
                 (_, _) => _framework.RunOnFrameworkThread(() => RemoveBackground(addonName)).Wait());
         }
+    }
+
+    public void Dispose()
+    {
+        _framework.RunOnFrameworkThread(DestroyBackgrounds).Wait();
+        _configurationRepository.ConfigurationUpdated -= UpdateConfiguration;
     }
 
     public void Update()
@@ -88,32 +94,13 @@ public sealed unsafe class BackgroundsManager : IDisposable
         }
     }
 
-    public void Dispose()
-    {
-        _framework.RunOnFrameworkThread(DestroyBackgrounds).Wait();
-        _configurationRepository.ConfigurationUpdated -= UpdateConfiguration;
-    }
-
-    private void RemoveBackground(string name)
-    {
-        if (!_backgrounds.TryGetValue(name, out BackgroundNodeGroup? background))
-        {
-            return;
-        }
-
-        Log.Debug("Removing background for {AddonName}", name);
-        background.Dispose();
-        _backgrounds.Remove(name);
-    }
-
     private void CreateBackgroundsIfNeeded()
     {
         bool addedNode = false;
 
-        foreach (IntPtr followTarget in _followTargetsBuffer)
+        foreach (AtkUnitBase* followTarget in _followTargetsBuffer)
         {
-            AtkUnitBase* followTargetAtk = (AtkUnitBase*)followTarget;
-            string addonName = followTargetAtk->NameString;
+            string addonName = followTarget->NameString;
 
             if (_backgrounds.ContainsKey(addonName))
             {
@@ -121,7 +108,29 @@ public sealed unsafe class BackgroundsManager : IDisposable
             }
 
             _log.Debug("Creating background for {addonName}", addonName);
-            _backgrounds.Add(addonName, new BackgroundNodeGroup(followTargetAtk->RootNode, _namePlate->RootNode, _configurationRepository.GetConfiguration(), _idProvider));
+
+            if (addonName == "_PartyList")
+            {
+                _backgrounds.Add(addonName,
+                    new BackgroundNodeGroup(
+                        new PartyListStatusNodeFinder((AddonPartyList*)followTarget),
+                        _namePlate->RootNode,
+                        _configurationRepository.GetConfiguration(),
+                        _idProvider
+                    ));
+            }
+            else
+            {
+                _backgrounds.Add(addonName,
+                    new BackgroundNodeGroup(
+                        new GenericStatusNodeFinder(followTarget->RootNode),
+                        _namePlate->RootNode,
+                        _configurationRepository.GetConfiguration(),
+                        _idProvider
+                    )
+                );
+            }
+
             addedNode = true;
         }
 
@@ -133,22 +142,26 @@ public sealed unsafe class BackgroundsManager : IDisposable
         }
     }
 
-    private void DestroyBackgrounds()
+    private void RemoveBackground(string name)
     {
-        bool removedNode = false;
-
-        _log.Debug("Destroying all backgrounds");
-        foreach (BackgroundNodeGroup background in _backgrounds.Values)
+        if (!_backgrounds.TryGetValue(name, out BackgroundNodeGroup? background))
         {
-            background.Dispose();
-            removedNode = true;
+            return;
         }
 
-        _backgrounds.Clear();
+        _log.Debug("Removing background for {AddonName}", name);
+        background.Dispose();
+        _backgrounds.Remove(name);
 
-        if (removedNode)
+        _namePlate->UldManager.UpdateDrawNodeList();
+    }
+
+    private void DestroyBackgrounds()
+    {
+        _log.Debug("Destroying all backgrounds");
+        foreach (string name in _backgrounds.Keys)
         {
-            _namePlate->UldManager.UpdateDrawNodeList();
+            RemoveBackground(name);
         }
     }
 
