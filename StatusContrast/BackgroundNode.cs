@@ -12,26 +12,18 @@ public unsafe struct BackgroundNode
     private AtkUldPart _part;
     private AtkUldPartsList _parts;
     private AtkImageNode _imageNode;
-    private AtkResNode* _nodeToFollow;
-    private AtkResNode* _addonRootNode;
 
-    public AtkImageNode* ImageNode => (AtkImageNode*)Unsafe.AsPointer(ref _imageNode);
     public bool PreviewEnabled { get; set; }
     public bool FixGapsEnabled { get; set; }
     public Vector4 Color { get; set; }
 
-    public void Init(AtkResNode* nodetoFollow, AtkResNode* addonRootNode, Configuration configuration,
-        NodeIdProvider idProvider)
+    public void Init(AtkResNode* attachTarget, Configuration configuration, NodeIdProvider idProvider)
     {
-        _nodeToFollow = nodetoFollow;
-        _addonRootNode = addonRootNode;
-
         PreviewEnabled = configuration.Preview;
         FixGapsEnabled = configuration.FixGaps;
         Color = configuration.Color;
 
         _asset.AtkTexture.Ctor();
-
         _part.UldAsset = (AtkUldAsset*)Unsafe.AsPointer(ref _asset);
 
         _parts.Parts = (AtkUldPart*)Unsafe.AsPointer(ref _part);
@@ -45,32 +37,36 @@ public unsafe struct BackgroundNode
         _imageNode.WrapMode = 0x1;
         _imageNode.PartsList = (AtkUldPartsList*)Unsafe.AsPointer(ref _parts);
 
-        Update();
+        NodeLinker.AttachToNode((AtkResNode*)Unsafe.AsPointer(ref _imageNode), attachTarget);
     }
 
     public void Destroy()
     {
+        NodeLinker.DetachNode((AtkResNode*)Unsafe.AsPointer(ref _imageNode));
         _asset.AtkTexture.Destroy(false);
         _imageNode.Destroy(false);
-        _nodeToFollow = null;
-        _addonRootNode = null;
     }
 
-    public void Update()
+    public void AssociateWithNode(AtkResNode* associatedNode)
     {
-        NodeFlags nodeFlags = _nodeToFollow->NodeFlags;
+        // Set node as dirty to force redraw
+        _imageNode.DrawFlags = 0x1;
+
+        if (associatedNode == null)
+        {
+            // Hide node
+            _imageNode.NodeFlags = NodeFlags.Enabled | NodeFlags.EmitsEvents;
+            return;
+        }
+
+        NodeFlags nodeFlags = associatedNode->NodeFlags;
 
         if (PreviewEnabled)
         {
             nodeFlags |= NodeFlags.Visible;
         }
 
-        if (_addonRootNode != null)
-        {
-            nodeFlags &= _addonRootNode->NodeFlags &= NodeFlags.Visible;
-        }
-
-        Bounds bounds = ComputeBounds();
+        Bounds bounds = ComputeBounds(associatedNode);
 
         _imageNode.NodeFlags = nodeFlags;
         _imageNode.SetXShort((short)bounds.Pos1.X);
@@ -84,18 +80,18 @@ public unsafe struct BackgroundNode
         _imageNode.AddBlue = (byte)(Color.Z * 255);
     }
 
-    private Bounds ComputeBounds()
+    private Bounds ComputeBounds(AtkResNode* associatedNode)
     {
         Bounds bounds = new();
-        _nodeToFollow->GetBounds(&bounds);
+        associatedNode->GetBounds(&bounds);
 
-        if (!FixGapsEnabled || _nodeToFollow->PrevSiblingNode == null)
+        if (!FixGapsEnabled || associatedNode->PrevSiblingNode == null)
         {
             return bounds;
         }
 
         Bounds prevSiblingBounds = new();
-        _nodeToFollow->PrevSiblingNode->GetBounds(&prevSiblingBounds);
+        associatedNode->PrevSiblingNode->GetBounds(&prevSiblingBounds);
 
         if (bounds.Pos1.Y != prevSiblingBounds.Pos1.Y)
         {

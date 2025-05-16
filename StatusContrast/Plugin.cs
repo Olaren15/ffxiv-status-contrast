@@ -9,17 +9,16 @@ namespace StatusContrast;
 public sealed class Plugin : IDalamudPlugin
 {
     private readonly WindowSystem _windowSystem;
-    private readonly ConfigurationRepository _configurationRepository;
     private readonly SettingsWindow _settingsWindow;
     private readonly BackgroundsManager _backgroundsManager;
 
     public Plugin()
     {
-        _configurationRepository = new ConfigurationRepository(PluginInterface, Log);
-        _backgroundsManager = new BackgroundsManager(Framework, GameGui, AddonLifecycle, Log, _configurationRepository);
+        var configurationRepository = new ConfigurationRepository(PluginInterface, Log);
+        _backgroundsManager = new BackgroundsManager(Framework, GameGui, AddonLifecycle, Log, configurationRepository);
 
         _windowSystem = new WindowSystem("StatusContrast");
-        _settingsWindow = new SettingsWindow(_configurationRepository);
+        _settingsWindow = new SettingsWindow(configurationRepository);
         _windowSystem.AddWindow(_settingsWindow);
 
         PluginInterface.UiBuilder.Draw += _windowSystem.Draw;

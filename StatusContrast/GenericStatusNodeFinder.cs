@@ -4,9 +4,9 @@ using FFXIVClientStructs.Interop;
 
 namespace StatusContrast;
 
-public unsafe class GenericStatusNodeFinder(AtkResNode* addonRootNode) : IStatusNodeFinder
+public static unsafe class GenericStatusNodeFinder
 {
-    public void ForEachNode(Action<Pointer<AtkResNode>, Pointer<AtkResNode>> action)
+    public static void ForEachNode(AtkResNode* addonRootNode, Action<Pointer<AtkResNode>> action)
     {
         AtkResNode* current = addonRootNode;
         // Travers node tree to find status nodes
@@ -15,7 +15,7 @@ public unsafe class GenericStatusNodeFinder(AtkResNode* addonRootNode) : IStatus
             // Statuses are of type 1001
             if ((ushort)current->Type == 1001)
             {
-                action(current, addonRootNode);
+                action(current);
             }
             else if (current->ChildNode != null)
             {
