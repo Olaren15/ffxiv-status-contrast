@@ -61,8 +61,16 @@ public unsafe struct BackgroundNode
 
         NodeFlags nodeFlags = associatedNode->NodeFlags;
 
+        if ((associatedNode->ParentNode->NodeFlags & NodeFlags.Visible) != NodeFlags.Visible)
+        {
+            // Parent node is hidden, we need to hide ourselves too.
+            // Must do this for target statuses. Sometimes, the statuses themselves don't get hidden. Only the parent
+            nodeFlags &= ~NodeFlags.Visible;
+        }
+
         if (PreviewEnabled)
         {
+            // Always show when preview is enabled
             nodeFlags |= NodeFlags.Visible;
         }
 
