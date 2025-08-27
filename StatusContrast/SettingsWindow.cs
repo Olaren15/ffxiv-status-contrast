@@ -1,7 +1,7 @@
 ﻿using System.Numerics;
+using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
-using ImGuiNET;
 
 namespace StatusContrast;
 
@@ -49,8 +49,8 @@ public class SettingsWindow : Window
 
         ImGui.TextUnformatted("Background Color:");
         ImGui.ColorEdit4("Color", ref _color,
-            ImGuiColorEditFlags.InputRGB | ImGuiColorEditFlags.PickerHueBar | ImGuiColorEditFlags.AlphaBar |
-            ImGuiColorEditFlags.Float | ImGuiColorEditFlags.DisplayRGB);
+            ImGuiColorEditFlags.InputRgb | ImGuiColorEditFlags.PickerHueBar | ImGuiColorEditFlags.AlphaBar |
+            ImGuiColorEditFlags.Float | ImGuiColorEditFlags.DisplayRgb);
 
         _configurationRepository.UpdateConfiguration(new Configuration
         {

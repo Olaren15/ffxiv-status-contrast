@@ -44,11 +44,11 @@ public sealed unsafe class BackgroundsManager : IDisposable
         _idProvider = new NodeIdProvider(69000); // Nice
 
         // Try to get addons if plugin is loaded when the ui is loaded
-        _namePlate = (AddonNamePlate*)gameGui.GetAddonByName(NamePlateAddonName);
+        _namePlate = (AddonNamePlate*)gameGui.GetAddonByName(NamePlateAddonName).Address;
 
         // Otherwise wait until ui is available
         _addonLifecycle.RegisterListener(AddonEvent.PostSetup, NamePlateAddonName,
-            (_, args) => _namePlate = (AddonNamePlate*)args.Addon);
+            (_, args) => _namePlate = (AddonNamePlate*)args.Addon.Address);
         _addonLifecycle.RegisterListener(AddonEvent.PreFinalize, NamePlateAddonName, (_, _) =>
         {
             _framework.RunOnFrameworkThread(DestroyBackgrounds).Wait();
@@ -58,7 +58,7 @@ public sealed unsafe class BackgroundsManager : IDisposable
         foreach (string addonName in _addonNamesToFollow)
         {
             _addonLifecycle.RegisterListener(AddonEvent.PreDraw, addonName,
-                (_, args) => AssociateBackgroundsWithStatuses((AtkUnitBase*)args.Addon));
+                (_, args) => AssociateBackgroundsWithStatuses((AtkUnitBase*)args.Addon.Address));
         }
 
         _configurationRepository.ConfigurationUpdated += UpdateConfiguration;
