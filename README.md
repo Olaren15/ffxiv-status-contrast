@@ -29,7 +29,7 @@ has been run with Dalamud at least once.
 
 ### Building
 
-1. Open up `EasyTranslate.sln` in your C# editor of choice (likely
+1. Open up `StatusContrast.sln` in your C# editor of choice (likely
 [Visual Studio 2022](https://visualstudio.microsoft.com) or
 [JetBrains Rider](https://www.jetbrains.com/rider/)).
 2. Build the solution. By default, this will build a `Debug` build, but you can
@@ -44,7 +44,7 @@ Console to open up the Dalamud settings.
     * In here, go to `Experimental`, and add the full path to the
     `StatusContrast.dll` to the list of Dev Plugin Locations.
 2. Next, use `/xlplugins` (chat) or `xlplugins` (console) to open up the Plugin Installer.
-    * In here, go to `Dev Tools > Installed Dev Plugins`, and the `Easy Translate`
+    * In here, go to `Dev Tools > Installed Dev Plugins`, and the `Status Contrast`
     should be visible. Enable it.
 3. You should now be able to use `/et` (chat) or `et` (console)!
 
