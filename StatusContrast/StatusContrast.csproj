@@ -5,6 +5,7 @@
     <Name>Status Contrast</Name>
     <Punchline>Add contrast to your status icons</Punchline>
     <Description>You will finally be able to easily see the timer of your buffs/debuffs properly when the arena background is bright!</Description>
+    <RepoUrl>https://github.com/Olaren15/ffxiv-status-contrast</RepoUrl>
     <Tags>UI</Tags>
     <Version>3.0.0</Version>
     <PackageProjectUrl>https://github.com/Olaren15/ffxiv-status-contrast</PackageProjectUrl>
