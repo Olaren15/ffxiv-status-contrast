@@ -33,7 +33,7 @@ public unsafe struct BackgroundNode
         _imageNode.Ctor();
         _imageNode.NodeId = idProvider.GetNext();
         _imageNode.Type = NodeType.Image;
-        _imageNode.Flags = (byte)ImageNodeFlags.AutoFit;
+        _imageNode.Flags = ImageNodeFlags.AutoFit;
         _imageNode.WrapMode = 0x1;
         _imageNode.PartsList = (AtkUldPartsList*)Unsafe.AsPointer(ref _parts);
 
