@@ -24,13 +24,13 @@ has been run with Dalamud at least once.
 * XIVLauncher is installed to its default directories and configurations.
   * If a custom path is required for Dalamud's dev directory, it must be set with
   the `DALAMUD_HOME` environment variable.
-* A .NET Core 9 SDK has been installed and configured, or is otherwise available.
+* A .NET Core 10 SDK has been installed and configured, or is otherwise available.
 (In most cases, the IDE will take care of this.)
 
 ### Building
 
 1. Open up `StatusContrast.sln` in your C# editor of choice (likely
-[Visual Studio 2022](https://visualstudio.microsoft.com) or
+[Visual Studio](https://visualstudio.microsoft.com) or
 [JetBrains Rider](https://www.jetbrains.com/rider/)).
 2. Build the solution. By default, this will build a `Debug` build, but you can
 switch to `Release` in your IDE.
@@ -46,7 +46,7 @@ Console to open up the Dalamud settings.
 2. Next, use `/xlplugins` (chat) or `xlplugins` (console) to open up the Plugin Installer.
     * In here, go to `Dev Tools > Installed Dev Plugins`, and the `Status Contrast`
     should be visible. Enable it.
-3. You should now be able to use `/et` (chat) or `et` (console)!
+3. You should now see backgrounds behind your status icons!
 
 Note that you only need to add it to the Dev Plugin Locations once (Step 1); it
 is preserved afterward. You can disable, enable, or load your plugin on startup
