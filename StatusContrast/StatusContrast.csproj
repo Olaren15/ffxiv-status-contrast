@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Project Sdk="Dalamud.NET.Sdk/14.0.1">
+<Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
     <Author>Olaren</Author>
     <Name>Status Contrast</Name>
@@ -7,7 +7,7 @@
     <Description>You will finally be able to easily see the timer of your buffs/debuffs properly when the arena background is bright!</Description>
     <RepoUrl>https://github.com/Olaren15/ffxiv-status-contrast</RepoUrl>
     <Tags>UI</Tags>
-    <Version>3.0.0</Version>
+    <Version>4.0.0</Version>
     <PackageProjectUrl>https://github.com/Olaren15/ffxiv-status-contrast</PackageProjectUrl>
     <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
     <IsPackable>false</IsPackable>
