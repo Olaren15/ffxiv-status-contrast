@@ -9,7 +9,7 @@ namespace StatusContrast;
 
 public sealed unsafe class BackgroundsManager : IDisposable
 {
-    private const string NamePlateAddonName = "NamePlate";
+    private const string TargetAddonName = "CastBarEnemy";
     private readonly IAddonLifecycle _addonLifecycle;
 
     private readonly List<string> _addonNamesToFollow =
@@ -31,7 +31,7 @@ public sealed unsafe class BackgroundsManager : IDisposable
     private readonly NodeIdProvider _idProvider;
     private readonly IPluginLog _log;
 
-    private AddonNamePlate* _namePlate;
+    private AtkUnitBase* _targetAddon;
 
     public BackgroundsManager(IFramework framework, IGameGui gameGui, IAddonLifecycle addonLifecycle, IPluginLog log,
         ConfigurationRepository configurationRepository)
@@ -44,15 +44,15 @@ public sealed unsafe class BackgroundsManager : IDisposable
         _idProvider = new NodeIdProvider(69000); // Nice
 
         // Try to get addons if plugin is loaded when the ui is loaded
-        _namePlate = (AddonNamePlate*)gameGui.GetAddonByName(NamePlateAddonName).Address;
+        _targetAddon = (AtkUnitBase*)gameGui.GetAddonByName(TargetAddonName).Address;
 
         // Otherwise wait until ui is available
-        _addonLifecycle.RegisterListener(AddonEvent.PostSetup, NamePlateAddonName,
-            (_, args) => _namePlate = (AddonNamePlate*)args.Addon.Address);
-        _addonLifecycle.RegisterListener(AddonEvent.PreFinalize, NamePlateAddonName, (_, _) =>
+        _addonLifecycle.RegisterListener(AddonEvent.PostSetup, TargetAddonName,
+            (_, args) => _targetAddon = (AtkUnitBase*)args.Addon.Address);
+        _addonLifecycle.RegisterListener(AddonEvent.PreFinalize, TargetAddonName, (_, _) =>
         {
             _framework.RunOnFrameworkThread(DestroyBackgrounds).Wait();
-            _namePlate = null;
+            _targetAddon = null;
         });
 
         foreach (string addonName in _addonNamesToFollow)
@@ -74,8 +74,8 @@ public sealed unsafe class BackgroundsManager : IDisposable
             _addonLifecycle.UnregisterListener(AddonEvent.PreDraw, addonName);
         }
 
-        _addonLifecycle.UnregisterListener(AddonEvent.PostSetup, NamePlateAddonName);
-        _addonLifecycle.UnregisterListener(AddonEvent.PreFinalize, NamePlateAddonName);
+        _addonLifecycle.UnregisterListener(AddonEvent.PostSetup, TargetAddonName);
+        _addonLifecycle.UnregisterListener(AddonEvent.PreFinalize, TargetAddonName);
     }
 
     private void AssociateBackgroundsWithStatuses(AtkUnitBase* addon)
@@ -94,7 +94,7 @@ public sealed unsafe class BackgroundsManager : IDisposable
 
     public void Update()
     {
-        if (_namePlate is null)
+        if (_targetAddon is null)
         {
             return;
         }
@@ -104,14 +104,14 @@ public sealed unsafe class BackgroundsManager : IDisposable
             _log.Debug("Creating backgrounds pool");
             _backgroundNodePool = new BackgroundNodePool(
                 _log,
-                _namePlate->RootNode,
+                _targetAddon->RootNode,
                 _configurationRepository.GetConfiguration(),
                 _idProvider
             );
         }
 
         _backgroundNodePool.PrepareForNextFrame();
-        _namePlate->UldManager.UpdateDrawNodeList();
+        _targetAddon->UldManager.UpdateDrawNodeList();
     }
 
     private void DestroyBackgrounds()
@@ -125,7 +125,7 @@ public sealed unsafe class BackgroundsManager : IDisposable
         _log.Debug("Destroying backgrounds pool");
         _backgroundNodePool.Dispose();
         _backgroundNodePool = null;
-        _namePlate->UldManager.UpdateDrawNodeList();
+        _targetAddon->UldManager.UpdateDrawNodeList();
     }
 
     private void UpdateConfiguration(object? sender, Configuration configuration)
